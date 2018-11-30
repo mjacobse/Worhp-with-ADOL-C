@@ -4,7 +4,7 @@ This project presents a way to combine the NLP solver WORHP and the automatic di
 The used case of this combination is rapid prototyping. Modeling a dynamic process is usually an iterative process. The complexity of the model rises gradually. We could either recompute all derivatives analytically every time the model changes or use ADOL-C to do this automatically for us.
 
 # Code Style
-This project tries to follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) enforced by  [cpplint](https://github.com/cpplint/cpplint)
+This project tries to follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) enforced by  [cpplint](https://github.com/cpplint/cpplint).
 
 # Code Example
 ADOL-C makes use of active (`adouble`) and passive data types (any other type). Integrating ADOL-C into  WORHP code (or any other NLP solver for that matter) consists of three steps.
