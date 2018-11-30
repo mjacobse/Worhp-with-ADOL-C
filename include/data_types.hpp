@@ -1,6 +1,7 @@
 #ifndef DATA_TYPES_HPP
     #define DATA_TYPES_HPP
     
+    // strong type for row index
     class Row
     {
         public:
@@ -11,6 +12,7 @@
             int value_;
     };
 
+    // strong type for column index
     class Col
     {
         public:
@@ -21,6 +23,7 @@
             int value_;
     };
 
+    // strong type for matrix value
     class Value
     {
         public:

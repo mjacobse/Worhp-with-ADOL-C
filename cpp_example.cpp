@@ -196,7 +196,7 @@ int main()
             sparseDG.emplace_back(Row(rind_g[i]),Col(cind_g[i]),Value(jacval[i]));
         }
 
-        std::sort(sparseDG.begin(),sparseDG.end(), sortDG_strong(MatrixEntry_strong{},MatrixEntry_strong{}));
+        std::sort(sparseDG.begin(),sparseDG.end(), sortDG_strong());
 
         for(int i =0; i <nnz_jac_g; ++i)
         {
@@ -220,31 +220,29 @@ int main()
          */ 
 
         std::vector<MatrixEntry_strong> sparseHM;
+        std::set<int> occuredDiags_set {};
 
-        std::vector<int> occuredDiags(opt.n);
-        std::iota(occuredDiags.begin(),occuredDiags.end(),0);
-        
+        for(int i = 0; i < opt.n; ++i)
+        {
+            occuredDiags_set.insert(i);
+        }
+
         for(int i =0; i < nnz_L; ++i)
         {
             sparseHM.emplace_back(Row(rind_L[i]), Col(cind_L[i]), Value(hessval[i]));
             
             if(rind_L[i] == cind_L[i])
             {
-                occuredDiags[rind_L[i]] = -1;
+                occuredDiags_set.erase(rind_L[i]);
             }
         }
 
-        for(const auto idx : occuredDiags)
+        for(const auto idx : occuredDiags_set)
         {
-            if(idx != -1)
-            {
-                sparseHM.emplace_back(Row(idx), Col(idx), Value(0));
-            }
+            sparseHM.emplace_back(Row(idx), Col(idx), Value(0));
         }
 
-        int n_lam = opt.n;
-        
-        std::sort(sparseHM.begin(),sparseHM.end(),sortHM_strong(n_lam,MatrixEntry_strong{},MatrixEntry_strong{}));
+        std::sort(sparseHM.begin(),sparseHM.end(),sortHM_strong(opt.n));
 
         for(size_t i =0; i <sparseHM.size(); ++i)
         {
@@ -406,18 +404,17 @@ void UserDG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
 
     
     std::vector<MatrixEntry_strong> sparseDG;
-        for(int i =0; i <nnz_jac_g; ++i)
-        {
-            sparseDG.emplace_back(Row(rind_g[i]), Col(cind_g[i]), Value(jacval[i]));
-            
-        }
+    for(int i =0; i <nnz_jac_g; ++i)
+    {
+        sparseDG.emplace_back(Row(rind_g[i]), Col(cind_g[i]), Value(jacval[i]));    
+    }
 
-        std::sort(sparseDG.begin(),sparseDG.end(),sortDG_strong(MatrixEntry_strong{},MatrixEntry_strong{}));
+    std::sort(sparseDG.begin(),sparseDG.end(), sortDG_strong());
         
-        for(int i =0; i <nnz_jac_g; ++i)
-        {
-            wsp->DG.val[i] = sparseDG[i].getVal().to_double();
-        }
+    for(int i =0; i <nnz_jac_g; ++i)
+    {
+        wsp->DG.val[i] = sparseDG[i].getVal().to_double();
+    }
 }
  
 void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
@@ -428,8 +425,11 @@ void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
 
     std::vector<MatrixEntry_strong>  sparseHM;
 
-    std::vector<int> occuredDiags(opt->n);
-    std::iota(occuredDiags.begin(),occuredDiags.end(),0);
+    std::set<int> occuredDiags_set {};
+    for(int i = 0; i < opt->n; ++i )
+    {
+        occuredDiags_set.insert(i);
+    }
 
     for(int i =0; i < nnz_L; ++i)
     {
@@ -437,25 +437,21 @@ void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
         
         if(rind_L[i] == cind_L[i])
         {
-            occuredDiags[rind_L[i]] = -1;
+            occuredDiags_set.erase(rind_L[i]);
         }
     }
 
-        for(const auto idx : occuredDiags)
-        {
-            if(idx != -1)
-            {
-                sparseHM.emplace_back(Row(idx),Col(idx),Value(0));
-            }
-        }
+    for(const auto idx : occuredDiags_set)
+    {
+        sparseHM.emplace_back(Row(idx),Col(idx),Value(0));
+    }
 
-        int numberOfOptVars = opt->n;
-        std::sort(sparseHM.begin(),sparseHM.end(), sortHM_strong(numberOfOptVars, MatrixEntry_strong{},MatrixEntry_strong{}));
-                
-        for(size_t i =0; i <sparseHM.size(); ++i)
-        {
+    std::sort(sparseHM.begin(),sparseHM.end(), sortHM_strong(opt->n));
+
+    for(size_t i =0; i < sparseHM.size(); ++i)
+    {
             wsp->HM.val[i] = sparseHM[i].getVal().to_double();
-        }
+    }
 }
 
 
