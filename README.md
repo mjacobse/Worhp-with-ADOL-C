@@ -62,6 +62,9 @@ ADOL-C stores the sparsity pattern in three independet arrays:
  
 Now we want to use the Jacobian and Hessian inside WORHP. This is a combination of the previous two steps, instead of doing the evaluation by hand we are calling the same functions `sparse_jac` and `sparse_hess` as in the previous chapter. Their results are stored in an data structure called `MatrixEntry`. This data structure is used to sort the array `rind_L, cind_L` and `hessval` in the order WORHP requires. they are then written into at appropriate positions in `UserDG` and `UserHM`.
  
+ # Acknowledgement
+ The idea of this interfaces goes back on Jonathan Boccara's blog [fluentC++](https://www.fluentcpp.com/) where he presented strong types for interfaces.
+ 
  # License
  
  This project is under the GPL license, see the LICENSE file for more information.
