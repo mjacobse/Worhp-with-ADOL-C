@@ -34,11 +34,11 @@
             double value_;
     };
 
-    class MatrixEntry_strong
+    class MatrixEntry
     {
         public:
-            explicit MatrixEntry_strong(){};
-            explicit MatrixEntry_strong(Row row, Col col,Value val)
+            explicit MatrixEntry(){};
+            explicit MatrixEntry(Row row, Col col,Value val)
             :
                 row_(row),
                 col_(col),

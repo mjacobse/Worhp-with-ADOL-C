@@ -190,13 +190,13 @@ int main()
          * Finally the sparsity pattern of DG is filled with with values.
          */ 
         
-        std::vector<MatrixEntry_strong> sparseDG;
+        std::vector<MatrixEntry> sparseDG;
         for(int i =0; i <nnz_jac_g; ++i)
         {
-            sparseDG.emplace_back(Row(rind_g[i]),Col(cind_g[i]),Value(jacval[i]));
+            sparseDG.emplace_back(Row(rind_g[i]), Col(cind_g[i]), Value(jacval[i]));
         }
 
-        std::sort(sparseDG.begin(),sparseDG.end(), sortDG_strong());
+        std::sort(sparseDG.begin(),sparseDG.end(), sortDG<>());
 
         for(int i =0; i <nnz_jac_g; ++i)
         {
@@ -219,7 +219,7 @@ int main()
          * The wsp.HM pattern with tranposed indices.
          */ 
 
-        std::vector<MatrixEntry_strong> sparseHM;
+        std::vector<MatrixEntry> sparseHM;
         std::set<int> occuredDiags_set {};
 
         for(int i = 0; i < opt.n; ++i)
@@ -242,7 +242,7 @@ int main()
             sparseHM.emplace_back(Row(idx), Col(idx), Value(0));
         }
 
-        std::sort(sparseHM.begin(),sparseHM.end(),sortHM_strong(opt.n));
+        std::sort(sparseHM.begin(),sparseHM.end(), sortHM<>(opt.n));
 
         for(size_t i =0; i <sparseHM.size(); ++i)
         {
@@ -403,13 +403,13 @@ void UserDG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
     sparse_jac(tag_g, opt->m, opt->n, 1, X, &nnz_jac, &rind_g, &cind_g, &jacval, options_g); 
 
     
-    std::vector<MatrixEntry_strong> sparseDG;
+    std::vector<MatrixEntry> sparseDG;
     for(int i =0; i <nnz_jac_g; ++i)
     {
         sparseDG.emplace_back(Row(rind_g[i]), Col(cind_g[i]), Value(jacval[i]));    
     }
 
-    std::sort(sparseDG.begin(),sparseDG.end(), sortDG_strong());
+    std::sort(sparseDG.begin(),sparseDG.end(), sortDG<>());
         
     for(int i =0; i <nnz_jac_g; ++i)
     {
@@ -423,7 +423,7 @@ void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
 
     sparse_hess(tag_L, opt->n, reuse_pattern, X, &nnz_L, &rind_L, &cind_L, &hessval, options_L);
 
-    std::vector<MatrixEntry_strong>  sparseHM;
+    std::vector<MatrixEntry>  sparseHM;
 
     std::set<int> occuredDiags_set {};
     for(int i = 0; i < opt->n; ++i )
@@ -446,7 +446,7 @@ void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
         sparseHM.emplace_back(Row(idx),Col(idx),Value(0));
     }
 
-    std::sort(sparseHM.begin(),sparseHM.end(), sortHM_strong(opt->n));
+    std::sort(sparseHM.begin(),sparseHM.end(), sortHM<>(opt->n));
 
     for(size_t i =0; i < sparseHM.size(); ++i)
     {
