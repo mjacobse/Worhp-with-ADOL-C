@@ -220,11 +220,11 @@ int main()
          */ 
 
         std::vector<MatrixEntry> sparseHM;
-        std::set<int> occuredDiags_set {};
+        std::set<int> missingDiagonalElems {};
 
         for(int i = 0; i < opt.n; ++i)
         {
-            occuredDiags_set.insert(i);
+            missingDiagonalElems.insert(i);
         }
 
         for(int i =0; i < nnz_L; ++i)
@@ -233,22 +233,21 @@ int main()
             
             if(rind_L[i] == cind_L[i])
             {
-                occuredDiags_set.erase(rind_L[i]);
+                missingDiagonalElems.erase(rind_L[i]);
             }
         }
 
-        for(const auto idx : occuredDiags_set)
+        for(const auto idx : missingDiagonalElems)
         {
             sparseHM.emplace_back(Row(idx), Col(idx), Value(0));
         }
 
         std::sort(sparseHM.begin(),sparseHM.end(), sortHM<>(opt.n));
 
-        for(size_t i =0; i <sparseHM.size(); ++i)
+        for(size_t i = 0; i < sparseHM.size(); ++i)
         {
             wsp.HM.row[i] = sparseHM[i].getCol().to_int() + 1;
             wsp.HM.col[i] = sparseHM[i].getRow().to_int() + 1;
-
         }
     }
  
@@ -391,8 +390,8 @@ void UserG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
  
 void UserDF(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
 {
-    wsp->DF.val[0] = wsp->ScaleObj * 2.0 * opt->X[0];
-    wsp->DF.val[1] = wsp->ScaleObj * 4.0 * opt->X[1];
+    wsp->DF.val[0] = wsp->ScaleObj *  2.0 * opt->X[0];
+    wsp->DF.val[1] = wsp->ScaleObj *  4.0 * opt->X[1];
     wsp->DF.val[2] = wsp->ScaleObj * -1.0;
 }
  
@@ -400,7 +399,7 @@ void UserDG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
 {
     double *X = opt->X;
 
-    sparse_jac(tag_g, opt->m, opt->n, 1, X, &nnz_jac, &rind_g, &cind_g, &jacval, options_g); 
+    sparse_jac(tag_g, opt->m, opt->n, reuse_pattern, X, &nnz_jac, &rind_g, &cind_g, &jacval, options_g); 
 
     
     std::vector<MatrixEntry> sparseDG;
@@ -425,10 +424,10 @@ void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
 
     std::vector<MatrixEntry>  sparseHM;
 
-    std::set<int> occuredDiags_set {};
+    std::set<int> missingDiagonalElems {};
     for(int i = 0; i < opt->n; ++i )
     {
-        occuredDiags_set.insert(i);
+        missingDiagonalElems.insert(i);
     }
 
     for(int i =0; i < nnz_L; ++i)
@@ -437,11 +436,11 @@ void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt)
         
         if(rind_L[i] == cind_L[i])
         {
-            occuredDiags_set.erase(rind_L[i]);
+            missingDiagonalElems.erase(rind_L[i]);
         }
     }
 
-    for(const auto idx : occuredDiags_set)
+    for(const auto idx : missingDiagonalElems)
     {
         sparseHM.emplace_back(Row(idx),Col(idx),Value(0));
     }
@@ -483,9 +482,8 @@ void generate_tapes(int n, int m, int& nnz_jac_g, int& nnz_h_lag, Workspace* wsp
 
     // taping the evaluation of the active counterpart to UserF
     trace_on(tag_f);
-        
         // declare xa[i] as independent variables
-        for(int idx=0;idx<n;idx++)
+        for(int idx=0; idx<n; idx++)
             xa[idx] <<= xp[idx];
 
         eval_obj(xa,obj_value);
