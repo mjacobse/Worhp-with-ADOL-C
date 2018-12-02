@@ -1,11 +1,3 @@
-/* Copyright (C) 2018 Luis Lüttgens - All Rights Reserved
- * You may use, distribute and modify this code under the
- * terms of the EPL or GPL license.
- *
- * You should have received a copy of the XYZ license with
- * this file. If not, please write to: luis.luett@googlemail.com
- */
-
 /*-----------------------------------------------------------------------
  *
  * Minimise    f
@@ -98,8 +90,8 @@ int main() {
      * create a dense matrix structure appropriate for the matrix kind and
      * its dimensions. Setting it to its dense dimension achieves the same.
      */
-    opt.n = 4;  // This problem has 4 variables
-    opt.m = 3;  // and 3 constraints (excluding box constraints)
+    opt.n = opt_n;  // This problem has 4 variables
+    opt.m = opt_m;  // and 3 constraints (excluding box constraints)
 
     /*
      * ADOLC data structure initialisation raoutine.
@@ -111,9 +103,9 @@ int main() {
      * NOTE: nnz_h_lag is already considers the full diagonal indepented of its sparsity pattern
      */ 
 
-    generate_tapes(opt.n, opt.m, nnz_jac_g, nnz_h_lag, &wsp);
+    generate_tapes(opt.n, opt.m, nnz_grad_f, nnz_jac_g, nnz_h_lag, &wsp);
 
-    wsp.DF.nnz = 3;
+    wsp.DF.nnz = nnz_grad_f;
     wsp.DG.nnz = nnz_jac_g;
     wsp.HM.nnz = nnz_h_lag;
 
@@ -179,9 +171,9 @@ int main() {
     if (wsp.DF.NeedStructure) {
         // only set the nonzero entries, so omit the 4th entry,
         // which is a structural zero
-        wsp.DF.row[0] = 1;
-        wsp.DF.row[1] = 2;
-        wsp.DF.row[2] = 3;
+        for (int i = 0; i < nnz_grad_f; ++i) {
+            wsp.DF.row[i] = cind_f[i] + 1;
+        }
     }
 
     // Define DG as CS-matrix
@@ -342,7 +334,7 @@ int main() {
 
 template<class T>
 bool eval_obj(const T *x, T& obj_value) {
-    obj_value = (x[0] * x[0] + 2.0 * x[1] * x[1] - x[2]);
+    obj_value = x[0] * x[0] + 2.0 * x[1] * x[1] - x[2];
     return true;
 }
 
@@ -363,25 +355,30 @@ void UserF(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
 
 void UserG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
     double *X = opt->X;
-    double g[3];
+    double g[opt_m];
 
     eval_constraints(X, g);
 
-    opt->G[0] = g[0];
-    opt->G[1] = g[1];
-    opt->G[2] = g[2];
+    for (size_t i = 0; i < opt_m; ++i) {
+        opt->G[i] = g[i];
+    }
 }
 
 void UserDF(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
-    wsp->DF.val[0] = wsp->ScaleObj *  2.0 * opt->X[0];
-    wsp->DF.val[1] = wsp->ScaleObj *  4.0 * opt->X[1];
-    wsp->DF.val[2] = wsp->ScaleObj * -1.0;
+    double *X = opt->X;
+    double grad_f[opt_n];
+
+    gradient(tag_f, opt_n, X, grad_f);
+
+    for (int i = 0; i < nnz_grad_f; ++i) {
+        wsp->DF.val[i] = wsp->ScaleObj *grad_f[i];
+    }
 }
 
 void UserDG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
     double *X = opt->X;
 
-    sparse_jac(tag_g, opt->m, opt->n, reuse_pattern, X,
+    sparse_jac(tag_g, opt_m, opt_n, reuse_pattern, X,
                 &nnz_jac, &rind_g, &cind_g, &jacval, options_g);
 
     std::vector<MatrixEntry> sparseDG;
@@ -399,13 +396,13 @@ void UserDG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
 void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
     double *X = opt->X;
 
-    sparse_hess(tag_L, opt->n, reuse_pattern, X, &nnz_L,
+    sparse_hess(tag_L, opt_n, reuse_pattern, X, &nnz_L,
                 &rind_L, &cind_L, &hessval, options_L);
 
     std::vector<MatrixEntry>  sparseHM;
 
     std::set<int> missingDiagonalElems {};
-    for (int i = 0; i < opt->n; ++i) {
+    for (size_t i = 0; i < opt_n; ++i) {
         missingDiagonalElems.insert(i);
     }
 
@@ -429,7 +426,7 @@ void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
 }
 
 
-void generate_tapes(int n, int m, int& nnz_jac_g, int& nnz_h_lag, Workspace* wsp) {
+void generate_tapes(int n, int m, int& nnz_grad_f, int& nnz_jac_g, int& nnz_h_lag, Workspace* wsp) {
     double *xp    = new double[n];
     double *lamp  = new double[m];
     double *zl    = new double[m];
@@ -499,24 +496,31 @@ void generate_tapes(int n, int m, int& nnz_jac_g, int& nnz_h_lag, Workspace* wsp
         obj_value >>= dummy;
     trace_off();
 
+    rind_f = NULL;
+    cind_f = NULL;
+
     rind_g = NULL;
     cind_g = NULL;
+
     rind_L = NULL;
     cind_L = NULL;
 
+    gradval = NULL;
     jacval  = NULL;
     hessval = NULL;
 
+    // computation of the sparsity pattern of gradient(UserF)
+    sparse_jac(tag_f, 1, n, compute_pattern, xp, &nnz_grad, &rind_f, &cind_f, &gradval, options_g);
+    nnz_grad_f = nnz_grad;
+
     // computation of the sparsity pattern of Jacobian(UserG)
-    sparse_jac(tag_g, m, n, compute_pattern, xp, &nnz_jac,
-                &rind_g, &cind_g, &jacval, options_g);
+    sparse_jac(tag_g, m, n, compute_pattern, xp, &nnz_jac, &rind_g, &cind_g, &jacval, options_g);
 
     // output number of non-zeros in the jacobian of userG
     nnz_jac_g = nnz_jac;
 
     // computation of the sparsity pattern of Hessian(Lagangian)
-    sparse_hess(tag_L, n, compute_pattern, xp, &nnz_L,
-                &rind_L, &cind_L, &hessval, options_L);
+    sparse_hess(tag_L, n, compute_pattern, xp, &nnz_L, &rind_L, &cind_L, &hessval, options_L);
 
 
     // determine the additional sparsity etries of HM

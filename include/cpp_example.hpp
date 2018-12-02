@@ -1,11 +1,3 @@
-/* Copyright (C) 2018 Luis Lüttgens - All Rights Reserved
- * You may use, distribute and modify this code under the
- * terms of the EPL or GPL license.
- *
- * You should have received a copy of the XYZ license with
- * this file. If not, please write to: luis.luett@googlemail.com
- */
-
 #ifndef INCLUDE_CPP_EXAMPLE_HPP_
     #define INCLUDE_CPP_EXAMPLE_HPP_
 
@@ -36,8 +28,15 @@
     constexpr int compute_pattern = 0;  // computed the sparsity pattern
     constexpr int reuse_pattern   = 1;  // reuse the sparsity pattern
 
+    constexpr size_t opt_n = 4;            // number of optimization variables
+    constexpr size_t opt_m = 3;            // dim(Im(g))
+    
 
     //** variables for sparsity exploitation
+    unsigned int *rind_f;        // gradient f: row indices gradient
+    unsigned int *cind_f;        // gradient f: column indices
+    double *gradval;             // gradient f: values
+
     unsigned int *rind_g;        // Jacobian g: row indices jacobian
     unsigned int *cind_g;        // Jacobian g: column indices
     double *jacval;              // Jacobian g: values
@@ -46,9 +45,11 @@
     unsigned int *cind_L;        // Hessian L: column indices
     double *hessval;             // Hessian L: values
 
+    int nnz_grad_f;              // number of non zeros in UserDF
     int nnz_jac_g;               // number of non zeros in UserDG
     int nnz_h_lag;               // number of non zeros in UserHM
 
+    int nnz_grad;                // number of non zeros in UserDF (local scope)
     int nnz_jac;                 // number of non zeros in UserDG (local scope)
     int nnz_L;                   // number of non zeros in UserHM (local scope)
 
@@ -66,7 +67,7 @@
     bool eval_constraints(const T *x, T *g);
 
     // genretes the tapes tag_f, tag_g and tag_L
-    void generate_tapes(int n, int m, int &nnz_jac_g, int &nnz_h_lag, Workspace* wsp);
+    void generate_tapes(int n, int m, int &nnz_grad_f, int &nnz_jac_g, int &nnz_h_lag, Workspace* wsp);
 
     // Objective function
     void UserF(OptVar *opt, Workspace *wsp, Params *par, Control *cnt);
