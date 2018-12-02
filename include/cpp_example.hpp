@@ -47,11 +47,9 @@
 
     int nnz_grad_f;              // number of non zeros in UserDF
     int nnz_jac_g;               // number of non zeros in UserDG
-    int nnz_h_lag;               // number of non zeros in UserHM
+    int nnz_h_lag;               // augmented number of non zeros in UserHM (inclduing diagonal)
 
-    int nnz_grad;                // number of non zeros in UserDF (local scope)
-    int nnz_jac;                 // number of non zeros in UserDG (local scope)
-    int nnz_L;                   // number of non zeros in UserHM (local scope)
+    int nnz_L;                   // actual number of non zeros in UserHM
 
 
     int options_g[4] = {0, 0, 0, 0};  // parameter vector for sparse_jac

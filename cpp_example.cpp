@@ -104,7 +104,7 @@ int main() {
      * NOTE: nnz_h_lag is already considers the full diagonal indepented of its sparsity pattern
      */ 
 
-    generate_tapes(opt.n, opt.m, nnz_grad_f, nnz_jac_g, nnz_h_lag, &wsp);
+    generate_tapes(opt_n, opt_m, nnz_grad_f, nnz_jac_g, nnz_h_lag, &wsp);
 
     wsp.DF.nnz = nnz_grad_f;
     wsp.DG.nnz = nnz_jac_g;
@@ -218,7 +218,7 @@ int main() {
         std::vector<MatrixEntry> sparseHM;
         std::set<int> missingDiagonalElems {};
 
-        for (int i = 0; i < opt.n; ++i) {
+        for (size_t i = 0; i < opt_n; ++i) {
             missingDiagonalElems.insert(i);
         }
 
@@ -234,7 +234,7 @@ int main() {
             sparseHM.emplace_back(Row(idx), Col(idx), Value(0));
         }
 
-        std::sort(sparseHM.begin(), sparseHM.end(), sortHM<>(opt.n));
+        std::sort(sparseHM.begin(), sparseHM.end(), sortHM<>(opt_n));
 
         for (size_t i = 0; i < sparseHM.size(); ++i) {
             wsp.HM.row[i] = sparseHM[i].getCol().to_int() + 1;
@@ -380,7 +380,7 @@ void UserDG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
     double *X = opt->X;
 
     sparse_jac(tag_g, opt_m, opt_n, reuse_pattern, X,
-                &nnz_jac, &rind_g, &cind_g, &jacval, options_g);
+                &nnz_jac_g, &rind_g, &cind_g, &jacval, options_g);
 
     std::vector<MatrixEntry> sparseDG;
     for (int i = 0; i < nnz_jac_g; ++i) {
@@ -511,14 +511,10 @@ void generate_tapes(int n, int m, int& nnz_grad_f, int& nnz_jac_g, int& nnz_h_la
     hessval = NULL;
 
     // computation of the sparsity pattern of gradient(UserF)
-    sparse_jac(tag_f, 1, n, compute_pattern, xp, &nnz_grad, &rind_f, &cind_f, &gradval, options_g);
-    nnz_grad_f = nnz_grad;
+    sparse_jac(tag_f, 1, n, compute_pattern, xp, &nnz_grad_f, &rind_f, &cind_f, &gradval, options_g);
 
     // computation of the sparsity pattern of Jacobian(UserG)
-    sparse_jac(tag_g, m, n, compute_pattern, xp, &nnz_jac, &rind_g, &cind_g, &jacval, options_g);
-
-    // output number of non-zeros in the jacobian of userG
-    nnz_jac_g = nnz_jac;
+    sparse_jac(tag_g, m, n, compute_pattern, xp, &nnz_jac_g, &rind_g, &cind_g, &jacval, options_g);
 
     // computation of the sparsity pattern of Hessian(Lagangian)
     sparse_hess(tag_L, n, compute_pattern, xp, &nnz_L, &rind_L, &cind_L, &hessval, options_L);
