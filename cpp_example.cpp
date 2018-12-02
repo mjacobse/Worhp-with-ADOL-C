@@ -521,12 +521,12 @@ void generate_tapes(int n, int m, int& nnz_grad_f, int& nnz_jac_g, int& nnz_h_la
 
 
     // determine the additional sparsity etries of HM
-    int additionalEntries4Worhp = n;
+    int additionalEntries4WorhpDiagonal = n;
     for (int i = 0; i < nnz_L; ++i)
-        if (rind_L[i] == cind_L[i]) --additionalEntries4Worhp;
+        if (rind_L[i] == cind_L[i]) --additionalEntries4WorhpDiagonal;
 
     // output number of non-zeros in the hessian of the lagrangian
-    nnz_h_lag = nnz_L + additionalEntries4Worhp;
+    nnz_h_lag = nnz_L + additionalEntries4WorhpDiagonal;
 
     delete[] lam;
     delete[] g;
