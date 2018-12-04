@@ -1,8 +1,8 @@
 /* Copyright (C) 2018 Luis Lüttgens - All Rights Reserved
  * You may use, distribute and modify this code under the
- * terms of the EPL or GPL license.
+ * terms of the GPL license.
  *
- * You should have received a copy of the XYZ license with
+ * You should have received a copy of the GPL license with
  * this file. If not, please write to: luis.luett@googlemail.com
  */
 

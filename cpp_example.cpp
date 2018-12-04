@@ -401,8 +401,8 @@ void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
                 &rind_L, &cind_L, &hessval, options_L);
 
     std::vector<MatrixEntry>  sparseHM;
-
     std::set<int> missingDiagonalElems {};
+
     for (size_t i = 0; i < opt_n; ++i) {
         missingDiagonalElems.insert(i);
     }

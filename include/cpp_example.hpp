@@ -30,7 +30,7 @@
 
     constexpr size_t opt_n = 4;            // number of optimization variables
     constexpr size_t opt_m = 3;            // dim(Im(g))
-    
+
 
     //** variables for sparsity exploitation
     unsigned int *rind_f;        // gradient f: row indices gradient
