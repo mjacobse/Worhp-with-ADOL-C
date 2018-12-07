@@ -6,17 +6,17 @@
  * this file. If not, please write to: luis.luett@googlemail.com
  */
 
-#ifndef INCLUDE_WORHP_ADOLC_INTERFACE_HPP_
-#define INCLUDE_WORHP_ADOLC_INTERFACE_HPP_
+#ifndef CORE_WORHP_ADOLC_INTERFACE_HPP_
+#define CORE_WORHP_ADOLC_INTERFACE_HPP_
+
+#include <adolc/adolc.h>
+#include <adolc/adolc_sparse.h>
+#include <worhp/worhp.h>
 
 #include <tuple>
 #include <vector>
 #include <algorithm>
 #include <set>
-
-#include <adolc/adolc.h>
-#include <adolc/adolc_sparse.h>
-#include <worhp/worhp.h>
 
 #include "adolc_symbols.hpp"
 #include "data_types.hpp"
@@ -140,20 +140,21 @@ void auto_diff_DF(Workspace* wsp, OptVar* opt) {
 
     gradient(adolc::tag_f, user::opt_n, opt->X, grad_f);
 
-    for (int i = 0; i < adolc::nnz_grad_f; ++i) {
-        wsp->DF.val[i] = wsp->ScaleObj *grad_f[i];
-    }
+    std::transform(grad_f, grad_f + adolc::nnz_grad_f, wsp->DF.val,
+        [wsp](const double &a) -> double {
+            return a * wsp -> ScaleObj;
+        });
 }
 
 void auto_diff_DG(Workspace* wsp, OptVar* opt) {
-    double *X = opt->X;
-
-    sparse_jac(adolc::tag_g, user::opt_m, user::opt_n, adolc::reuse_pattern, X, &adolc::nnz_jac_g,
-              &adolc::rind_g, &adolc::cind_g, &adolc::jacval, adolc::options_g);
+    sparse_jac(adolc::tag_g, user::opt_m, user::opt_n, adolc::reuse_pattern, opt->X,
+              &adolc::nnz_jac_g, &adolc::rind_g, &adolc::cind_g, &adolc::jacval, adolc::options_g);
 
     std::vector<MatrixEntry> sparseDG;
     for (int i = 0; i < adolc::nnz_jac_g; ++i) {
-        sparseDG.emplace_back(Row(adolc::rind_g[i]), Col(adolc::cind_g[i]), Value(adolc::jacval[i]));
+        sparseDG.emplace_back(Row(adolc::rind_g[i]),
+                              Col(adolc::cind_g[i]),
+                              Value(adolc::jacval[i]));
     }
 
     std::sort(sparseDG.begin(), sparseDG.end(), worhp::sortDG<>());
@@ -175,7 +176,9 @@ void auto_diff_HM(Workspace* wsp, OptVar* opt) {
     }
 
     for (int i = 0; i < adolc::nnz_L; ++i) {
-        sparseHM.emplace_back(Row(adolc::rind_L[i]), Col(adolc::cind_L[i]), Value(adolc::hessval[i]));
+        sparseHM.emplace_back(Row(adolc::rind_L[i]),
+                              Col(adolc::cind_L[i]),
+                              Value(adolc::hessval[i]));
 
         if (adolc::rind_L[i] == adolc::cind_L[i]) {
             missingDiagonalElems.erase(adolc::rind_L[i]);
@@ -224,4 +227,4 @@ void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
     worhp::auto_diff_HM(wsp, opt);
 }
 
-#endif  // INCLUDE_WORHP_ADOLC_INTERFACE_HPP_
+#endif  // CORE_WORHP_ADOLC_INTERFACE_HPP_

@@ -1,7 +1,7 @@
 /* Copyright [2018] */
 
-#ifndef INCLUDE_GENERATE_TAPES_HPP_
-#define INCLUDE_GENERATE_TAPES_HPP_
+#ifndef CORE_GENERATE_TAPES_HPP_
+#define CORE_GENERATE_TAPES_HPP_
 
 #include <adolc/adolc.h>
 #include <adolc/adolc_sparse.h>
@@ -125,4 +125,4 @@ void generate_tapes(int n, int m, int& nnz_grad_f, int& nnz_jac_g, int& nnz_h_la
     delete[] xp;
 }
 
-#endif  // INCLUDE_GENERATE_TAPES_HPP_
+#endif  // CORE_GENERATE_TAPES_HPP_

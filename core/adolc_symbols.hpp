@@ -1,6 +1,6 @@
 /* Copyright [2018] */
-#ifndef INCLUDE_ADOLC_SYMBOLS_HPP_
-#define INCLUDE_ADOLC_SYMBOLS_HPP_
+#ifndef CORE_ADOLC_SYMBOLS_HPP_
+#define CORE_ADOLC_SYMBOLS_HPP_
 namespace adolc {
     // defines for adolc constants
     constexpr int tag_f = 1;            // tape identifier for UserF
@@ -35,4 +35,4 @@ namespace adolc {
 
 }  // namespace adolc
 
-#endif  // INCLUDE_ADOLC_SYMBOLS_HPP_
+#endif  // CORE_ADOLC_SYMBOLS_HPP_

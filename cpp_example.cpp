@@ -104,7 +104,8 @@ int main() {
      * NOTE: nnz_h_lag is already considers the full diagonal indepented of its sparsity pattern
      */ 
 
-    generate_tapes(user::opt_n, user::opt_m, adolc::nnz_grad_f, adolc::nnz_jac_g, adolc::nnz_h_lag, &wsp);
+    generate_tapes(user::opt_n, user::opt_m, adolc::nnz_grad_f,
+                   adolc::nnz_jac_g, adolc::nnz_h_lag, &wsp);
 
     WorhpInit(&opt, &wsp, &par, &cnt);
     if (cnt.status != FirstCall) {

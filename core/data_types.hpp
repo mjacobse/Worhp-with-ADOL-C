@@ -6,8 +6,8 @@
  * this file. If not, please write to: luis.luett@googlemail.com
  */
 
-#ifndef INCLUDE_DATA_TYPES_HPP_
-#define INCLUDE_DATA_TYPES_HPP_
+#ifndef CORE_DATA_TYPES_HPP_
+#define CORE_DATA_TYPES_HPP_
 
 // strong type for row index
 class Row {
@@ -79,4 +79,4 @@ class MatrixEntry {
       Value val_;
 };
 
-#endif  // INCLUDE_DATA_TYPES_HPP_
+#endif  // CORE_DATA_TYPES_HPP_
