@@ -23,8 +23,8 @@
  *
  *-----------------------------------------------------------------------*/
 
-#include "include/cpp_example.hpp"
-#include "include/sort_worhp_matrices.hpp"
+#include "cpp_example.hpp"
+#include "include/worhpAD.hpp"
 
 int main() {
     /*
@@ -91,8 +91,8 @@ int main() {
      * create a dense matrix structure appropriate for the matrix kind and
      * its dimensions. Setting it to its dense dimension achieves the same.
      */
-    opt.n = opt_n;  // This problem has 4 variables
-    opt.m = opt_m;  // and 3 constraints (excluding box constraints)
+    opt.n = user::opt_n;  // This problem has 4 variables
+    opt.m = user::opt_m;  // and 3 constraints (excluding box constraints)
 
     /*
      * ADOLC data structure initialisation raoutine.
@@ -104,11 +104,7 @@ int main() {
      * NOTE: nnz_h_lag is already considers the full diagonal indepented of its sparsity pattern
      */ 
 
-    generate_tapes(opt_n, opt_m, nnz_grad_f, nnz_jac_g, nnz_h_lag, &wsp);
-
-    wsp.DF.nnz = nnz_grad_f;
-    wsp.DG.nnz = nnz_jac_g;
-    wsp.HM.nnz = nnz_h_lag;
+    generate_tapes(user::opt_n, user::opt_m, adolc::nnz_grad_f, adolc::nnz_jac_g, adolc::nnz_h_lag, &wsp);
 
     WorhpInit(&opt, &wsp, &par, &cnt);
     if (cnt.status != FirstCall) {
@@ -170,76 +166,17 @@ int main() {
 
     // Define DF as row vector, column index is ommited
     if (wsp.DF.NeedStructure) {
-        // only set the nonzero entries, so omit the 4th entry,
-        // which is a structural zero
-        for (int i = 0; i < nnz_grad_f; ++i) {
-            wsp.DF.row[i] = cind_f[i] + 1;
-        }
+        worhp::auto_diff_DF_pattern(&wsp);
     }
 
     // Define DG as CS-matrix
     if (wsp.DG.NeedStructure) {
-        // only set the nonzero entries in column-major order
-
-        /*
-         * This piece of code is intended to reorder the arrays rind_g and cind_g. ADOL-C
-         * returns them in row major order WORHP needs them in column order. The three components
-         * of the sparsity pattern rowIdx (rind_g), colIdx (cind_g) and value at this position (jacval).
-         * They are gathered in tupels these tupel are then ordered in column-major order.
-         * Finally the sparsity pattern of DG is filled with with values.
-         */
-
-        std::vector<MatrixEntry> sparseDG;
-        for (int i = 0; i < nnz_jac_g; ++i) {
-            sparseDG.emplace_back(Row(rind_g[i]), Col(cind_g[i]), Value(jacval[i]));
-        }
-
-        std::sort(sparseDG.begin(), sparseDG.end(), sortDG<>());
-
-        for (int i = 0; i < nnz_jac_g; ++i) {
-            wsp.DG.row[i] = sparseDG[i].getRow().to_int() +1;
-            wsp.DG.col[i] = sparseDG[i].getCol().to_int() +1;
-        }
+        worhp::auto_diff_DG_pattern(&wsp);
     }
 
     // Define HM as a diagonal LT-CS-matrix, but only if needed by WORHP
     if (wsp.HM.NeedStructure) {
-        /*
-         * This piece of code is intended to reorder the arrays rind_L and cind_L. ADOL-C
-         * returns them in row-major order and the upper triangular matrix.
-         * WORHP needs them in a special order. Each diagonal element is bigger than any
-         * non-diagonal element. Internally both partitions are sorted in column-major order.
-         * 
-         * NOTE: WORHP requires a full diagonal independent of this actual sparsity structure,
-         * this is considered in this block of code. After the elements are sorted they written to
-         * The wsp.HM pattern with tranposed indices.
-         */ 
-
-        std::vector<MatrixEntry> sparseHM;
-        std::set<int> missingDiagonalElems {};
-
-        for (size_t i = 0; i < opt_n; ++i) {
-            missingDiagonalElems.insert(i);
-        }
-
-        for (int i = 0; i < nnz_L; ++i) {
-            sparseHM.emplace_back(Row(rind_L[i]), Col(cind_L[i]), Value(hessval[i]));
-
-            if (rind_L[i] == cind_L[i]) {
-                missingDiagonalElems.erase(rind_L[i]);
-            }
-        }
-
-        for (const auto idx : missingDiagonalElems) {
-            sparseHM.emplace_back(Row(idx), Col(idx), Value(0));
-        }
-
-        std::sort(sparseHM.begin(), sparseHM.end(), sortHM<>(opt_n));
-
-        for (size_t i = 0; i < sparseHM.size(); ++i) {
-            wsp.HM.row[i] = sparseHM[i].getCol().to_int() + 1;
-            wsp.HM.col[i] = sparseHM[i].getRow().to_int() + 1;
-        }
+        worhp::auto_diff_HM_pattern(&wsp);
     }
 
     /*
@@ -331,208 +268,4 @@ int main() {
     WorhpFree(&opt, &wsp, &par, &cnt);
 
     return EXIT_SUCCESS;
-}
-
-template<class T>
-bool eval_obj(const T *x, T& obj_value) {
-    obj_value = x[0] * x[0] + 2.0 * x[1] * x[1] - x[2];
-    return true;
-}
-
-template<class T>
-bool eval_constraints(const T *x, T* g) {
-    g[0] = x[0] * x[0] + x[2] * x[2] + x[0] * x[2];
-    g[1] = x[2] - x[3];
-    g[2] = x[1] + x[3];
-    return true;
-}
-
-void UserF(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
-    double *X = opt->X;
-    double obj_value;
-    eval_obj(X, obj_value);
-    opt->F = wsp->ScaleObj * obj_value;
-}
-
-void UserG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
-    double *X = opt->X;
-    double g[opt_m];
-
-    eval_constraints(X, g);
-
-    for (size_t i = 0; i < opt_m; ++i) {
-        opt->G[i] = g[i];
-    }
-}
-
-void UserDF(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
-    double *X = opt->X;
-    double grad_f[opt_n];
-
-    gradient(tag_f, opt_n, X, grad_f);
-
-    for (int i = 0; i < nnz_grad_f; ++i) {
-        wsp->DF.val[i] = wsp->ScaleObj *grad_f[i];
-    }
-}
-
-void UserDG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
-    double *X = opt->X;
-
-    sparse_jac(tag_g, opt_m, opt_n, reuse_pattern, X,
-                &nnz_jac_g, &rind_g, &cind_g, &jacval, options_g);
-
-    std::vector<MatrixEntry> sparseDG;
-    for (int i = 0; i < nnz_jac_g; ++i) {
-        sparseDG.emplace_back(Row(rind_g[i]), Col(cind_g[i]), Value(jacval[i]));
-    }
-
-    std::sort(sparseDG.begin(), sparseDG.end(), sortDG<>());
-
-    for (int i = 0; i < nnz_jac_g; ++i) {
-        wsp->DG.val[i] = sparseDG[i].getVal().to_double();
-    }
-}
-
-void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
-    double *X = opt->X;
-
-    sparse_hess(tag_L, opt_n, reuse_pattern, X, &nnz_L,
-                &rind_L, &cind_L, &hessval, options_L);
-
-    std::vector<MatrixEntry>  sparseHM;
-    std::set<int> missingDiagonalElems {};
-
-    for (size_t i = 0; i < opt_n; ++i) {
-        missingDiagonalElems.insert(i);
-    }
-
-    for (int i = 0; i < nnz_L; ++i) {
-        sparseHM.emplace_back(Row(rind_L[i]), Col(cind_L[i]), Value(hessval[i]));
-
-        if (rind_L[i] == cind_L[i]) {
-            missingDiagonalElems.erase(rind_L[i]);
-        }
-    }
-
-    for (const auto idx : missingDiagonalElems) {
-        sparseHM.emplace_back(Row(idx), Col(idx), Value(0));
-    }
-
-    std::sort(sparseHM.begin(), sparseHM.end(), sortHM<>(opt->n));
-
-    for (size_t i =0; i < sparseHM.size(); ++i) {
-        wsp->HM.val[i] = sparseHM[i].getVal().to_double();
-    }
-}
-
-
-void generate_tapes(int n, int m, int& nnz_grad_f, int& nnz_jac_g, int& nnz_h_lag, Workspace* wsp) {
-    double *xp    = new double[n];
-    double *lamp  = new double[m];
-    double *zl    = new double[m];
-    double *zu    = new double[m];
-
-    adouble *xa   = new adouble[n];
-    adouble *g    = new adouble[m];
-    double *lam   = new double[m];
-    double sig;
-    adouble obj_value;
-
-    double dummy;
-
-    // initialize passive variables
-    xp[0]   = 2.0;
-    xp[1]   = 2.0;
-    xp[2]   = 1.0;
-    xp[3]   = 0.0;
-
-    lamp[0] = 0.0;
-    lamp[1] = 0.0;
-    lamp[2] = 0.0;
-
-
-    // taping the evaluation of the active counterpart to UserF
-    trace_on(tag_f);
-        // declare xa[i] as independent variables
-        for (int idx = 0; idx < n; idx++)
-            xa[idx] <<= xp[idx];
-
-        eval_obj(xa, obj_value);
-
-        // declare obj_value as dependent variable
-        obj_value >>= dummy;
-    trace_off();
-
-    // taping the evaluation of the active counterpart to UserG
-    trace_on(tag_g);
-        for (int idx = 0; idx < n; idx++)
-            xa[idx] <<= xp[idx];
-
-        eval_constraints(xa, g);
-
-        for (int idx = 0; idx < m; idx++)
-            g[idx] >>= dummy;
-    trace_off();
-
-    // taping the evaluation of the active version of the Lagrangian
-    trace_on(tag_L);
-        for (int idx = 0; idx < n; idx++)
-            xa[idx] <<= xp[idx];
-
-        for (int idx = 0; idx < m; idx++)
-            lam[idx] = lamp[idx];
-
-        sig = wsp->ScaleObj;
-
-        eval_obj(xa, obj_value);
-
-        // explicit passive decalration of sig
-        obj_value *= mkparam(sig);
-        eval_constraints(xa, g);
-
-        for (int idx = 0; idx < m; idx++)
-            obj_value += g[idx]*mkparam(lam[idx]);
-
-        obj_value >>= dummy;
-    trace_off();
-
-    rind_f = NULL;
-    cind_f = NULL;
-
-    rind_g = NULL;
-    cind_g = NULL;
-
-    rind_L = NULL;
-    cind_L = NULL;
-
-    gradval = NULL;
-    jacval  = NULL;
-    hessval = NULL;
-
-    // computation of the sparsity pattern of gradient(UserF)
-    sparse_jac(tag_f, 1, n, compute_pattern, xp, &nnz_grad_f, &rind_f, &cind_f, &gradval, options_g);
-
-    // computation of the sparsity pattern of Jacobian(UserG)
-    sparse_jac(tag_g, m, n, compute_pattern, xp, &nnz_jac_g, &rind_g, &cind_g, &jacval, options_g);
-
-    // computation of the sparsity pattern of Hessian(Lagangian)
-    sparse_hess(tag_L, n, compute_pattern, xp, &nnz_L, &rind_L, &cind_L, &hessval, options_L);
-
-
-    // determine the additional sparsity etries of HM
-    int additionalEntries4WorhpDiagonal = n;
-    for (int i = 0; i < nnz_L; ++i)
-        if (rind_L[i] == cind_L[i]) --additionalEntries4WorhpDiagonal;
-
-    // output number of non-zeros in the hessian of the lagrangian
-    nnz_h_lag = nnz_L + additionalEntries4WorhpDiagonal;
-
-    delete[] lam;
-    delete[] g;
-    delete[] xa;
-    delete[] zu;
-    delete[] zl;
-    delete[] lamp;
-    delete[] xp;
 }
