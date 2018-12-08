@@ -1,7 +1,7 @@
 /* Copyright [2018] */
 
-#ifndef INCLUDE_USER_INTERFACE_HPP_
-#define INCLUDE_USER_INTERFACE_HPP_
+#ifndef USER_USER_INTERFACE_HPP_
+#define USER_USER_INTERFACE_HPP_
 
 #include <stdlib.h>
 namespace user {
@@ -35,4 +35,4 @@ void get_starting_point(double* x, double* lam) {
 
 }  // namespace user
 
-#endif  // INCLUDE_USER_INTERFACE_HPP_
+#endif  // USER_USER_INTERFACE_HPP_

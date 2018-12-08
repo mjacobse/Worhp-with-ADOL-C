@@ -20,6 +20,4 @@
 #include <unordered_set>
 #include <set>
 
-#include "include/worhpAD.hpp"
-
 #endif  // INCLUDE_CPP_EXAMPLE_HPP_

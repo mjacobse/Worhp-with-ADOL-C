@@ -2,6 +2,7 @@
 #ifndef CORE_ADOLC_SYMBOLS_HPP_
 #define CORE_ADOLC_SYMBOLS_HPP_
 namespace adolc {
+
     // defines for adolc constants
     constexpr int tag_f = 1;            // tape identifier for UserF
     constexpr int tag_g = 2;            // tape identifier for UserG
