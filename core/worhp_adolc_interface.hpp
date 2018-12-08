@@ -22,7 +22,7 @@
 #include "data_types.hpp"
 #include "../user/user_interface.hpp"
 
-namespace worhp {
+namespace worhpAD {
 
 /* intermediate function hiding the lambda in the actual source code
  * Intend is to sort UserDG according to WORHP's desire
@@ -68,13 +68,13 @@ auto sortHM(size_t sizeHM, T a = T{}, T b = T{}) {
     };
 }
 
-void auto_diff_DF_pattern(Workspace* wsp) {
-    for (int i = 0; i < adolc::nnz_grad_f; ++i) {
+void DF_pattern(Workspace* wsp) {
+    for (int i = 0; i < wsp->DF.nnz; ++i) {
             wsp->DF.row[i] = adolc::cind_f[i] + 1;
     }
 }
 
-void auto_diff_DG_pattern(Workspace* wsp) {
+void DG_pattern(Workspace* wsp) {
             /*
          * This piece of code is intended to reorder the arrays rind_g and cind_g. ADOL-C
          * returns them in row major order WORHP needs them in column order. The three components
@@ -84,19 +84,19 @@ void auto_diff_DG_pattern(Workspace* wsp) {
          */
 
         std::vector<MatrixLocation> sparseDG;
-        for (int i = 0; i < adolc::nnz_jac_g; ++i) {
+        for (int i = 0; i < wsp->DG.nnz; ++i) {
             sparseDG.emplace_back(Row(adolc::rind_g[i]), Col(adolc::cind_g[i]));
         }
 
-        std::sort(sparseDG.begin(), sparseDG.end(), worhp::sortDG<MatrixLocation>());
+        std::sort(sparseDG.begin(), sparseDG.end(), worhpAD::sortDG<MatrixLocation>());
 
-        for (int i = 0; i < adolc::nnz_jac_g; ++i) {
+        for (int i = 0; i < wsp->DG.nnz; ++i) {
             wsp->DG.row[i] = sparseDG[i].getRow().to_int() +1;
             wsp->DG.col[i] = sparseDG[i].getCol().to_int() +1;
         }
 }
 
-void auto_diff_HM_pattern(Workspace* wsp) {
+void HM_pattern(Workspace* wsp) {
     /*
      * This piece of code is intended to reorder the arrays rind_L and cind_L. ADOL-C
      * returns them in row-major order and the upper triangular matrix.
@@ -127,7 +127,7 @@ void auto_diff_HM_pattern(Workspace* wsp) {
         sparseHM.emplace_back(Row(idx), Col(idx));
     }
 
-    std::sort(sparseHM.begin(), sparseHM.end(), worhp::sortHM<MatrixLocation>(user::opt_n));
+    std::sort(sparseHM.begin(), sparseHM.end(), worhpAD::sortHM<MatrixLocation>(user::opt_n));
 
     for (size_t i = 0; i < sparseHM.size(); ++i) {
         wsp->HM.row[i] = sparseHM[i].getCol().to_int() + 1;
@@ -135,36 +135,36 @@ void auto_diff_HM_pattern(Workspace* wsp) {
     }
 }
 
-void auto_diff_DF(Workspace* wsp, OptVar* opt) {
+void DF(Workspace* wsp, OptVar* opt) {
     double grad_f[user::opt_n];
 
     gradient(adolc::tag_f, user::opt_n, opt->X, grad_f);
 
-    std::transform(grad_f, grad_f + adolc::nnz_grad_f, wsp->DF.val,
+    std::transform(grad_f, grad_f + wsp->DF.nnz, wsp->DF.val,
         [wsp](const double &a) -> double {
             return a * wsp -> ScaleObj;
         });
 }
 
-void auto_diff_DG(Workspace* wsp, OptVar* opt) {
+void DG(Workspace* wsp, OptVar* opt) {
     sparse_jac(adolc::tag_g, user::opt_m, user::opt_n, adolc::reuse_pattern, opt->X,
-              &adolc::nnz_jac_g, &adolc::rind_g, &adolc::cind_g, &adolc::jacval, adolc::options_g);
+              &wsp->DG.nnz, &adolc::rind_g, &adolc::cind_g, &adolc::jacval, adolc::options_g);
 
     std::vector<MatrixEntry> sparseDG;
-    for (int i = 0; i < adolc::nnz_jac_g; ++i) {
+    for (int i = 0; i < wsp->DG.nnz; ++i) {
         sparseDG.emplace_back(Row(adolc::rind_g[i]),
                               Col(adolc::cind_g[i]),
                               Value(adolc::jacval[i]));
     }
 
-    std::sort(sparseDG.begin(), sparseDG.end(), worhp::sortDG<>());
+    std::sort(sparseDG.begin(), sparseDG.end(), worhpAD::sortDG<>());
 
-    for (int i = 0; i < adolc::nnz_jac_g; ++i) {
+    for (int i = 0; i < wsp->DG.nnz; ++i) {
         wsp->DG.val[i] = sparseDG[i].getVal().to_double();
     }
 }
 
-void auto_diff_HM(Workspace* wsp, OptVar* opt) {
+void HM(Workspace* wsp, OptVar* opt) {
     sparse_hess(adolc::tag_L, user::opt_n, adolc::reuse_pattern, opt->X, &adolc::nnz_L,
                &adolc::rind_L, &adolc::cind_L, &adolc::hessval, adolc::options_L);
 
@@ -189,7 +189,7 @@ void auto_diff_HM(Workspace* wsp, OptVar* opt) {
         sparseHM.emplace_back(Row(idx), Col(idx), Value(0));
     }
 
-    std::sort(sparseHM.begin(), sparseHM.end(), worhp::sortHM<>(opt->n));
+    std::sort(sparseHM.begin(), sparseHM.end(), worhpAD::sortHM<>(opt->n));
 
     for (size_t i =0; i < sparseHM.size(); ++i) {
         wsp->HM.val[i] = sparseHM[i].getVal().to_double();
@@ -205,26 +205,26 @@ void UserG(OptVar* opt) {
     user::eval_constraints(opt->X, opt->G);
 }
 
-}  // namespace worhp
+}  // namespace worhpAD
 
 void UserF(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
-    worhp::UserF(wsp, opt);
+    worhpAD::UserF(wsp, opt);
 }
 
 void UserG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
-    worhp::UserG(opt);
+    worhpAD::UserG(opt);
 }
 
 void UserDF(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
-    worhp::auto_diff_DF(wsp, opt);
+    worhpAD::DF(wsp, opt);
 }
 
 void UserDG(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
-    worhp::auto_diff_DG(wsp, opt);
+    worhpAD::DG(wsp, opt);
 }
 
 void UserHM(OptVar *opt, Workspace *wsp, Params *par, Control *cnt) {
-    worhp::auto_diff_HM(wsp, opt);
+    worhpAD::HM(wsp, opt);
 }
 
 #endif  // CORE_WORHP_ADOLC_INTERFACE_HPP_

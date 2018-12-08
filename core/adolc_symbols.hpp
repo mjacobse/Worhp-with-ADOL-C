@@ -23,12 +23,7 @@ namespace adolc {
     unsigned int *cind_L;        // Hessian L: column indices
     double *hessval;             // Hessian L: values
 
-    int nnz_grad_f;              // number of non zeros in UserDF
-    int nnz_jac_g;               // number of non zeros in UserDG
-    int nnz_h_lag;               // augmented number of non zeros in UserHM (inclduing diagonal)
-
     int nnz_L;                   // actual number of non zeros in UserHM
-
 
     int options_g[4] = {0, 0, 0, 0};  // parameter vector for sparse_jac
     int options_L[2] = {0, 1};        // parameter vector for sparse_hessian

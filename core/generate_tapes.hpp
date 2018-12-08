@@ -9,17 +9,9 @@
 
 #include "adolc_symbols.hpp"
 
-// tamplated version of UserF that can process active and passive variables
-template<class T>
-void eval_obj(const T *x, T& obj_value);
+namespace adolc {
 
-// tamplated version of UserG that can process active and passive variables
-template<class T>
-void eval_constraints(const T *x, T *g);
-
-void get_starting_point(double* x, double* lam);
-
-void generate_tapes(int n, int m, int& nnz_grad_f, int& nnz_jac_g, int& nnz_h_lag, Workspace* wsp) {
+void generate_tapes(Workspace* wsp, int n = user::opt_n, int m = user::opt_m) {
     double *xp    = new double[n];
     double *lamp  = new double[m];
     double *zl    = new double[m];
@@ -94,14 +86,12 @@ void generate_tapes(int n, int m, int& nnz_grad_f, int& nnz_jac_g, int& nnz_h_la
     adolc::hessval = NULL;
 
     // computation of the sparsity pattern of gradient(UserF)
-    sparse_jac(adolc::tag_f, 1, n, adolc::compute_pattern, xp, &adolc::nnz_grad_f,
+    sparse_jac(adolc::tag_f, 1, n, adolc::compute_pattern, xp, &wsp->DF.nnz,
               &adolc::rind_f, &adolc::cind_f, &adolc::gradval, adolc::options_g);
-    wsp->DF.nnz = adolc::nnz_grad_f;
 
     // computation of the sparsity pattern of Jacobian(UserG)
-    sparse_jac(adolc::tag_g, m, n, adolc::compute_pattern, xp, &adolc::nnz_jac_g,
+    sparse_jac(adolc::tag_g, m, n, adolc::compute_pattern, xp, &wsp->DG.nnz,
               &adolc::rind_g, &adolc::cind_g, &adolc::jacval, adolc::options_g);
-    wsp->DG.nnz = adolc::nnz_jac_g;
 
     // computation of the sparsity pattern of Hessian(Lagangian)
     sparse_hess(adolc::tag_L, n, adolc::compute_pattern, xp, &adolc::nnz_L,
@@ -113,8 +103,7 @@ void generate_tapes(int n, int m, int& nnz_grad_f, int& nnz_jac_g, int& nnz_h_la
         if (adolc::rind_L[i] == adolc::cind_L[i]) --additionalEntries4WorhpDiagonal;
 
     // output number of non-zeros in the hessian of the lagrangian
-    adolc::nnz_h_lag = adolc::nnz_L + additionalEntries4WorhpDiagonal;
-    wsp->HM.nnz      = adolc::nnz_h_lag;
+    wsp->HM.nnz = adolc::nnz_L + additionalEntries4WorhpDiagonal;
 
     delete[] lam;
     delete[] g;
@@ -124,5 +113,7 @@ void generate_tapes(int n, int m, int& nnz_grad_f, int& nnz_jac_g, int& nnz_h_la
     delete[] lamp;
     delete[] xp;
 }
+
+}  // namespace adolc
 
 #endif  // CORE_GENERATE_TAPES_HPP_

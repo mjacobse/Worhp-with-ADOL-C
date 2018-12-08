@@ -101,11 +101,9 @@ int main() {
      * I/O containers storing the number of non-zeros in the jacobian and the hessian 
      * and a poiter to the WORHP workspace.
      * 
-     * NOTE: nnz_h_lag is already considers the full diagonal indepented of its sparsity pattern
      */ 
 
-    generate_tapes(user::opt_n, user::opt_m, adolc::nnz_grad_f,
-                   adolc::nnz_jac_g, adolc::nnz_h_lag, &wsp);
+    adolc::generate_tapes(&wsp);
 
     WorhpInit(&opt, &wsp, &par, &cnt);
     if (cnt.status != FirstCall) {
@@ -167,17 +165,17 @@ int main() {
 
     // Define DF as row vector, column index is ommited
     if (wsp.DF.NeedStructure) {
-        worhp::auto_diff_DF_pattern(&wsp);
+        worhpAD::DF_pattern(&wsp);
     }
 
     // Define DG as CS-matrix
     if (wsp.DG.NeedStructure) {
-        worhp::auto_diff_DG_pattern(&wsp);
+        worhpAD::DG_pattern(&wsp);
     }
 
     // Define HM as a diagonal LT-CS-matrix, but only if needed by WORHP
     if (wsp.HM.NeedStructure) {
-        worhp::auto_diff_HM_pattern(&wsp);
+        worhpAD::HM_pattern(&wsp);
     }
 
     /*
