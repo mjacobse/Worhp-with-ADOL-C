@@ -92,6 +92,7 @@ void generate_tapes(Workspace* wsp, int n = user::opt_n, int m = user::opt_m) {
     // computation of the sparsity pattern of Jacobian(UserG)
     sparse_jac(adolc::tag_g, m, n, adolc::compute_pattern, xp, &wsp->DG.nnz,
               &adolc::rind_g, &adolc::cind_g, &adolc::jacval, adolc::options_g);
+    wsp->DG.dim_perm = wsp->DG.nnz;
 
     // computation of the sparsity pattern of Hessian(Lagangian)
     sparse_hess(adolc::tag_L, n, adolc::compute_pattern, xp, &adolc::nnz_L,
@@ -104,6 +105,7 @@ void generate_tapes(Workspace* wsp, int n = user::opt_n, int m = user::opt_m) {
 
     // output number of non-zeros in the hessian of the lagrangian
     wsp->HM.nnz = adolc::nnz_L + additionalEntries4WorhpDiagonal;
+    wsp->HM.dim_perm = wsp->HM.nnz;
 
     delete[] lam;
     delete[] g;

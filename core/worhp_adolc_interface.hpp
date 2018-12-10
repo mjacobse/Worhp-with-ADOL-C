@@ -13,60 +13,14 @@
 #include <adolc/adolc_sparse.h>
 #include <worhp/worhp.h>
 
-#include <tuple>
+#include <cassert>
 #include <vector>
 #include <algorithm>
-#include <set>
 
 #include "adolc_symbols.hpp"
-#include "data_types.hpp"
 #include "../user/user_interface.hpp"
 
 namespace worhpAD {
-
-/* intermediate function hiding the lambda in the actual source code
- * Intend is to sort UserDG according to WORHP's desire
- */
-template<typename T = MatrixEntry>
-auto sortDG(T a = T{}, T b = T{}) {
-    return [](auto a, auto b) -> bool {
-        // 1) the column index of a is smaller than b's
-        // 2) the column indices are equal and the rows ar compared
-        // 3) the column index of b is smaller than a's
-
-        if (a.getCol().to_int() <  b.getCol().to_int()) {
-            return true;
-        } else if (a.getCol().to_int() == b.getCol().to_int()) {
-            return a.getRow().to_int() <  b.getRow().to_int();
-        } else {
-            return false;
-        }
-    };
-}
-
-template<typename T = MatrixEntry>
-auto sortHM(size_t sizeHM, T a = T{}, T b = T{}) {
-    return [sizeHM](auto a, auto b)->bool {
-        // 1) a is in the lower triangle and b on the main diagonal
-        // 2) a is on the main diagonal and b in the lower triangle
-        // 3) both element are on the main diagonal
-        // 4) no  diagonal elements, column-major ordering is performed
-
-        if (a.getRow().to_int() != a.getCol().to_int() &&
-            b.getRow().to_int() == b.getCol().to_int()) {
-            return true;
-        } else if (a.getRow().to_int() == a.getCol().to_int() &&
-                   b.getRow().to_int() != b.getCol().to_int()) {
-            return false;
-        } else if (a.getRow().to_int() == a.getCol().to_int() &&
-                   b.getRow().to_int() == b.getCol().to_int()) {
-            return a.getRow().to_int() < b.getRow().to_int();
-        } else {
-        return a.getRow().to_int() + a.getCol().to_int() * sizeHM <
-               b.getRow().to_int() + b.getCol().to_int() * sizeHM;
-        }
-    };
-}
 
 void DF_pattern(Workspace* wsp) {
     for (int i = 0; i < wsp->DF.nnz; ++i) {
@@ -75,40 +29,20 @@ void DF_pattern(Workspace* wsp) {
 }
 
 void DG_pattern(Workspace* wsp) {
-            /*
-         * This piece of code is intended to reorder the arrays rind_g and cind_g. ADOL-C
-         * returns them in row major order WORHP needs them in column order. The three components
-         * of the sparsity pattern rowIdx (rind_g), colIdx (cind_g) and value at this position (jacval).
-         * They are gathered in tupels these tupel are then ordered in column-major order.
-         * Finally the sparsity pattern of DG is filled with with values.
-         */
-
-        std::vector<MatrixLocation> sparseDG;
-        for (int i = 0; i < wsp->DG.nnz; ++i) {
-            sparseDG.emplace_back(Row(adolc::rind_g[i]), Col(adolc::cind_g[i]));
-        }
-
-        std::sort(sparseDG.begin(), sparseDG.end(), worhpAD::sortDG<MatrixLocation>());
-
-        for (int i = 0; i < wsp->DG.nnz; ++i) {
-            wsp->DG.row[i] = sparseDG[i].getRow().to_int() +1;
-            wsp->DG.col[i] = sparseDG[i].getCol().to_int() +1;
-        }
+    for (int i = 0; i < wsp->DG.nnz; ++i) {
+        wsp->DG.row[i] = adolc::rind_g[i] + 1;
+        wsp->DG.col[i] = adolc::cind_g[i] + 1;
+    }
+    SortWorhpMatrix(&wsp->DG);
 }
 
 void HM_pattern(Workspace* wsp) {
-    /*
-     * This piece of code is intended to reorder the arrays rind_L and cind_L. ADOL-C
-     * returns them in row-major order and the upper triangular matrix.
-     * WORHP needs them in a special order. Each diagonal element is bigger than any
-     * non-diagonal element. Internally both partitions are sorted in column-major order.
-     * 
-     * NOTE: WORHP requires a full diagonal independent of this actual sparsity structure,
-     * this is considered in this block of code. After the elements are sorted they written to
-     * The wsp.HM pattern with tranposed indices.
-     */ 
+    for (int i = 0; i < adolc::nnz_L; ++i) {
+        // transpose
+        wsp->HM.row[i] = adolc::cind_L[i] + 1;
+        wsp->HM.col[i] = adolc::rind_L[i] + 1;
+    }
 
-    std::vector<MatrixLocation> sparseHM;
     std::set<int> missingDiagonalElems {};
 
     for (size_t i = 0; i < user::opt_n; ++i) {
@@ -116,23 +50,19 @@ void HM_pattern(Workspace* wsp) {
     }
 
     for (int i = 0; i < adolc::nnz_L; ++i) {
-        sparseHM.emplace_back(Row(adolc::rind_L[i]), Col(adolc::cind_L[i]));
-
         if (adolc::rind_L[i] == adolc::cind_L[i]) {
             missingDiagonalElems.erase(adolc::rind_L[i]);
         }
     }
 
+    int i = 0;
     for (const auto idx : missingDiagonalElems) {
-        sparseHM.emplace_back(Row(idx), Col(idx));
+        wsp->HM.row[adolc::nnz_L + i] = (idx + 1);
+        wsp->HM.col[adolc::nnz_L + i] = (idx + 1);
+        ++i;
     }
 
-    std::sort(sparseHM.begin(), sparseHM.end(), worhpAD::sortHM<MatrixLocation>(user::opt_n));
-
-    for (size_t i = 0; i < sparseHM.size(); ++i) {
-        wsp->HM.row[i] = sparseHM[i].getCol().to_int() + 1;
-        wsp->HM.col[i] = sparseHM[i].getRow().to_int() + 1;
-    }
+    SortWorhpMatrix(&wsp->HM);
 }
 
 void DF(Workspace* wsp, OptVar* opt) {
@@ -150,17 +80,10 @@ void DG(Workspace* wsp, OptVar* opt) {
     sparse_jac(adolc::tag_g, user::opt_m, user::opt_n, adolc::reuse_pattern, opt->X,
               &wsp->DG.nnz, &adolc::rind_g, &adolc::cind_g, &adolc::jacval, adolc::options_g);
 
-    std::vector<MatrixEntry> sparseDG;
     for (int i = 0; i < wsp->DG.nnz; ++i) {
-        sparseDG.emplace_back(Row(adolc::rind_g[i]),
-                              Col(adolc::cind_g[i]),
-                              Value(adolc::jacval[i]));
-    }
-
-    std::sort(sparseDG.begin(), sparseDG.end(), worhpAD::sortDG<>());
-
-    for (int i = 0; i < wsp->DG.nnz; ++i) {
-        wsp->DG.val[i] = sparseDG[i].getVal().to_double();
+        assert(wsp->DG.row[i] == adolc::rind_g[wsp->DG.perm[i] - 1] + 1);
+        assert(wsp->DG.col[i] == adolc::cind_g[wsp->DG.perm[i] - 1] + 1);
+        wsp->DG.val[i] = adolc::jacval[wsp->DG.perm[i] - 1];
     }
 }
 
@@ -168,31 +91,15 @@ void HM(Workspace* wsp, OptVar* opt) {
     sparse_hess(adolc::tag_L, user::opt_n, adolc::reuse_pattern, opt->X, &adolc::nnz_L,
                &adolc::rind_L, &adolc::cind_L, &adolc::hessval, adolc::options_L);
 
-    std::vector<MatrixEntry>  sparseHM;
-    std::set<int> missingDiagonalElems {};
-
-    for (size_t i = 0; i < user::opt_n; ++i) {
-        missingDiagonalElems.insert(i);
-    }
-
-    for (int i = 0; i < adolc::nnz_L; ++i) {
-        sparseHM.emplace_back(Row(adolc::rind_L[i]),
-                              Col(adolc::cind_L[i]),
-                              Value(adolc::hessval[i]));
-
-        if (adolc::rind_L[i] == adolc::cind_L[i]) {
-            missingDiagonalElems.erase(adolc::rind_L[i]);
+    for (int i = 0; i < wsp->HM.nnz; ++i) {
+        if (wsp->HM.perm[i] > adolc::nnz_L) {
+            // zero diagonal entry, only to obey WORHP's structure
+            wsp->HM.val[i] = 0.0;
+            continue;
         }
-    }
-
-    for (const auto idx : missingDiagonalElems) {
-        sparseHM.emplace_back(Row(idx), Col(idx), Value(0));
-    }
-
-    std::sort(sparseHM.begin(), sparseHM.end(), worhpAD::sortHM<>(opt->n));
-
-    for (size_t i =0; i < sparseHM.size(); ++i) {
-        wsp->HM.val[i] = sparseHM[i].getVal().to_double();
+        assert(wsp->HM.row[i] == adolc::cind_L[wsp->HM.perm[i] - 1] + 1);
+        assert(wsp->HM.col[i] == adolc::rind_L[wsp->HM.perm[i] - 1] + 1);
+        wsp->HM.val[i] = adolc::hessval[wsp->HM.perm[i] - 1];
     }
 }
 
